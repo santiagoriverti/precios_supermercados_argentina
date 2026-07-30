@@ -83,9 +83,9 @@ def construir_mensual(archivos: list[ArchivoSepa], out_root: str | Path,
     for tipo, anio, mes in claves:
         grupo = [a for a in archivos if (a.tipo, a.anio, a.mes) == (tipo, anio, mes)]
         df = agregar_mes(grupo, **kw)
-        out_dir = out_root / f"tipo={tipo}" / f"anio={anio}"
+        out_dir = out_root / f"tipo={tipo}" / f"anio={anio}" / f"mes={mes:02d}"
         out_dir.mkdir(parents=True, exist_ok=True)
-        out_path = out_dir / f"mes={mes:02d}.parquet"
+        out_path = out_dir / "datos.parquet"
         df.to_parquet(out_path, index=False, compression="zstd")
         if verbose:
             print(f"  {tipo} {anio}-{mes:02d}: {len(df):,} (producto x sucursal) -> {out_path.name}")
