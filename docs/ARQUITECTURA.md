@@ -64,12 +64,34 @@ lee solo las particiones necesarias vía predicados sobre `tipo`, `anio`, `mes`.
 
 > Para el mayorista, `tipo_precio` ∈ {uni_iva, uni, bulto_iva, bulto} preserva las 4 medidas.
 
+## Capa de agregado mensual (la que usa este proyecto)
+
+El Parquet **diario** (`ingest`) resultó demasiado grande (~700 MB por quincena → decenas de GB
+el histórico). Como el análisis es mensual + geográfico, la capa efectiva es el **agregado
+mensual** (`agregado.py`, `scripts/02_build_mensual.py`):
+
+```
+data/processed/precios_mensuales/tipo=minorista/anio=2026/mes=06.parquet
+  → una fila por (id_producto, id_sucursal): precio_prom (pesos), n_dias
+```
+
+Es ~34–64 MB por mes (el histórico entra en ~1–2 GB). Desde acá se calculan la **cobertura por
+producto** (`cobertura_productos_YYYYMM.parquet`), la selección de canastas y las series de la
+prima. Los scripts:
+
+| Script | Rol |
+|--------|-----|
+| `scripts/00_build_parquet.py` | ETL diario (opcional; formato completo). |
+| `scripts/02_build_mensual.py` | **Agregado mensual** (recomendado): CSV.gz → precios_mensuales. |
+| `scripts/03_construir_canastas.py` | Arma `config/canastas/canastas.xlsx` (editable) + `.csv`. |
+
 ## El paquete `src/precios_sepa`
 
 | Módulo | Responsabilidad |
 |--------|-----------------|
 | `io.py` | Descarga desde Drive (gdown), descubrimiento de archivos, apertura de CSV.gz en streaming. |
-| `ingest.py` | Wide→long, escritura de Parquet particionado, índice de archivos (`2024 bis` > `2024`). |
+| `ingest.py` | Wide→long, escritura de Parquet particionado (diario), factor de precio por archivo. |
+| `agregado.py` | **Capa de análisis**: agrega a precio promedio MENSUAL por producto × sucursal (sin `melt`, liviano). Reemplaza al diario para este proyecto. |
 | `clean.py` | Sentinelas, `NA`→NaN, factor de precio autodetectado, marcado de outliers y meses parciales. |
 | `maestros.py` | Carga y repara los maestros (mojibake), normaliza provincias por coordenadas. |
 | `cadenas.py` | Deriva nombre de cadena desde `(id_comercio,id_bandera)` con fallback sin descartar. |

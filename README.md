@@ -17,10 +17,12 @@ cada uno pensado como insumo de un artículo científico.
 
 | # | Artículo | Notebook | Estado |
 |---|----------|----------|--------|
-| **1** | **Prima celíaca**: canasta de consumo típica vs. canasta con reemplazo apto celíaco. Sobreprecio, evolución temporal, distribución geográfica y relación con la concentración de centros de comercialización. | `03_prima_celiaca.ipynb` | 🚧 En construcción |
+| **1** | **Prima celíaca**: canasta de alimentos media vs. su versión con reemplazo apto celíaco. Sobreprecio y su variación en (1) tiempo, (2) geografía por lat/lon, (3) concentración espacial de puntos de venta, (4) cadena/marca. | `03_prima_celiaca.ipynb` | 🚧 Canastas definidas; prima preliminar **+63%** (2026-06) |
 | 2 | (a definir) | — | 💡 Backlog |
 
-> Cada artículo nace de un notebook autocontenido. Ver `docs/papers/` para los borradores.
+> Cada artículo nace de un notebook autocontenido. Las canastas (media y celíaca) están en el
+> **Excel editable** [`config/canastas/canastas.xlsx`](config/canastas/canastas.xlsx); ver
+> [`docs/CANASTAS.md`](docs/CANASTAS.md) y [`docs/METODOLOGIA_PRIMA_CELIACA.md`](docs/METODOLOGIA_PRIMA_CELIACA.md).
 
 ---
 
@@ -110,14 +112,18 @@ cd precios_supermercados_argentina
 python -m venv .venv && . .venv/Scripts/activate   # Windows
 pip install -r requirements.txt
 
-# 1) Construir la base Parquet desde base_sepa.zip (pesado, corre una vez)
-python scripts/00_build_parquet.py --zip "C:/ruta/a/base_sepa.zip"
+# 1) Agregado MENSUAL de precios (recomendado: producto x sucursal x mes, ~1-2 GB)
+python scripts/02_build_mensual.py --tipo minorista
 
-# 2) Limpiar los maestros
-python scripts/01_build_maestros.py
+# 2) Construir/actualizar las canastas (Excel editable + CSV)
+python scripts/03_construir_canastas.py
+
+#    (opcional) ETL diario completo, mucho mas pesado:
+#    python scripts/00_build_parquet.py --tipo minorista
 ```
 
-Después, abrí los notebooks en `notebooks/` (local o Colab).
+Después, abrí los notebooks en `notebooks/` (local o Colab). Para cambiar las cantidades de la
+canasta, editá `config/canastas/canastas.xlsx` (columna `cantidad_mensual`) y reejecutá.
 
 ---
 
@@ -148,6 +154,7 @@ Dos esquemas distintos conviven en la base. Detalle completo en
 - [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) — diseño del proyecto y flujo de datos.
 - [`docs/DICCIONARIO_DATOS.md`](docs/DICCIONARIO_DATOS.md) — esquema, columnas y unidades.
 - [`docs/CALIDAD_DATOS.md`](docs/CALIDAD_DATOS.md) — limpieza, sentinelas, encoding, factor de precio.
+- [`docs/CANASTAS.md`](docs/CANASTAS.md) — composición de las canastas media y celíaca (editable).
 - [`docs/METODOLOGIA_PRIMA_CELIACA.md`](docs/METODOLOGIA_PRIMA_CELIACA.md) — Artículo 1.
 
 ---

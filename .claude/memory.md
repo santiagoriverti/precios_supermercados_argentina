@@ -7,9 +7,14 @@ Proyecto nuevo (2026-07-30). Plataforma de investigación reproducible sobre pre
 ## Decisiones tomadas (con Santiago)
 - **Reproducibilidad:** híbrido (datos crudos privados + agregados livianos públicos).
 - **Rango:** arranca 2024 (estructura lista para sumar 2018–2023 después).
-- **Motor:** DuckDB + Parquet particionado.
-- **Artículo 1:** prima celíaca (canasta típica vs. celíaca) — evolución temporal, geográfica,
-  y relación con la concentración de mercado (HHI).
+- **Motor:** DuckDB + Parquet. **Capa efectiva = agregado MENSUAL** (producto × sucursal × mes),
+  NO el diario (demasiado grande: ~700 MB/quincena). Ver `agregado.py` + `scripts/02_build_mensual.py`.
+- **Artículo 1:** prima celíaca. Canasta de **alimentos y bebidas SOLAMENTE** (sin higiene).
+  Prima medida en 4 ejes: (1) tiempo, (2) geografía lat/lon, (3) **concentración ESPACIAL** de
+  puntos de venta (densidad + distancias haversine, `concentracion.metricas_espaciales`), (4) cadena.
+- **Canastas:** construidas NUEVAS (no reusar viejas) por cobertura geográfica; cantidades base
+  CBA/INDEC. Definición EDITABLE en `config/canastas/canastas.xlsx` (col `cantidad_mensual`).
+  Incluir sin-TACC de cobertura nacional aunque estén en menos sucursales; imputar precio nacional.
 
 ## Hallazgos verificados contra la base real (2026-07-30)
 - Minorista `…COMPLETO`: 1 col precio/día (`precio_YYYYMMDD`). Mayorista: 4 cols/día
@@ -28,20 +33,34 @@ Proyecto nuevo (2026-07-30). Plataforma de investigación reproducible sobre pre
 - Carpeta "2024 bis" = re-entrega corregida de ago–dic 2024 → preferir sobre "2024".
 - Maestro productos: 176.702 filas (join `producto_sepa_id` = `id_producto`).
 
-## Estado
-- Arquitectura creada: config/, src/precios_sepa/, scripts/, docs/, notebooks/ (pendientes).
-- src backbone funcional: io.descubrir_archivos, ingest.wide_a_long/procesar_archivo, clean.
-- Pipeline validado en muestra (ver git log del primer commit).
+## Estado (2026-07-30)
+- **Notebooks 00 (setup) y 01 (exploración): validados end-to-end en Colab por Santiago.**
+- Paquete `precios_sepa` completo: io, ingest, **agregado** (mensual), clean, maestros, cadenas,
+  canasta (lee el Excel), concentracion (HHI + **metricas_espaciales** lat/lon), indec, viz.
+- **Agregado mensual minorista corriendo en background** (`scripts/02_build_mensual.py`), ~4,5
+  min/mes, ~2 hs total; al 2026-07-30 iban 7 meses (2024-01..2024-07). Sale a
+  `data/processed/precios_mensuales/` (gitignored, regenerable).
+- **Cobertura por producto** calculada de 2026-06: `data/processed/cobertura_productos_2026-06.parquet`
+  (8.038 productos food con cobertura nacional). Copia dev: `_cobertura_dev_2026-06.parquet`.
+- **Canastas FINALES definidas** (15 grupos food, 5 con diferencial celíaco): `config/canastas/`
+  `canastas.xlsx` (editable) + `canastas.csv`. Ver `docs/CANASTAS.md`.
+- **Prima celíaca preliminar (2026-06, nacional): +63,4%** (media ~$87.4k, celíaca ~$142.9k).
+  Sube respecto de estimaciones previas porque la conversión por tamaño de envase es correcta.
+- Trampa recurrente resuelta: **acentos** en filtros SQL → usar `strip_accents()` de DuckDB
+  (sin eso, "Atún"/"Azúcar"/"Jamón" no matchean y se eligen productos malos).
+- Queso y huevos EXCLUIDOS de la canasta: se venden por peso (EAN de balanza/prefijo tienda),
+  sin cobertura nacional con EAN limpio.
 
 ## Pendiente
-1. Notebooks 00–03 (00 setup, 01 exploración, 02 canastas, 03 prima celíaca).
-2. Extraer los EANs completos de la canasta "Media" desde el nb02 del repo viejo
-   (`precios_minoristas_supermercados/notebooks/02_...ipynb`) para completar
-   `config/canastas/canasta_tipo.csv`.
-3. Completar `config/cadenas.csv` con los comercios regionales no identificados.
-4. Definir IDs de Drive en `config/settings.yml` (base cruda + agregados públicos).
-5. Correr el build completo y publicar los agregados livianos.
+1. **Notebook 02** (construcción de canastas: cobertura + Excel + validación geográfica).
+2. **Notebook 03** (prima celíaca: serie temporal + mapa lat/lon + concentración espacial + cadena).
+   Requiere el build mensual completo (para la serie).
+3. Esperar a que termine el build mensual minorista; opcional: mayorista.
+4. Completar `config/cadenas.csv` con los ~32 comercios regionales no identificados (fallback ok).
+5. Definir IDs de Drive en `config/settings.yml` y publicar agregados livianos (modo lector).
 
-## Ubicaciones
+## Ubicaciones y comandos clave
 - Base local extraída: `C:/Users/sriverti/Downloads/base_sepa/`
+- Build mensual: `python scripts/02_build_mensual.py --tipo minorista`
+- Reconstruir canastas: `python scripts/03_construir_canastas.py`
 - Repo viejo (referencia, verificar): `C:/Users/sriverti/Desktop/INECO/Repositorios/precios_minoristas_supermercados`
