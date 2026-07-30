@@ -1,0 +1,60 @@
+# ══════════════════════════════════════════════════════════════════
+#  Configuración global del proyecto precios_supermercados_argentina
+# ══════════════════════════════════════════════════════════════════
+
+proyecto:
+  nombre: "Precios de Supermercados de Argentina (SEPA)"
+  autor: "Santiago Riverti"
+
+# ── Rutas ──────────────────────────────────────────────────────────
+# Locales (build pesado en la PC de Santiago). En Colab se sobreescriben.
+rutas:
+  zip_local: "C:/Users/sriverti/Downloads/base_sepa/base_sepa.zip"
+  base_extraida: "C:/Users/sriverti/Downloads/base_sepa"        # ya descomprimida
+  data_raw: "data/raw"
+  data_interim: "data/interim"
+  data_processed: "data/processed"
+  data_external: "data/external"
+  outputs_figures: "outputs/figures"
+  outputs_tables: "outputs/tables"
+
+# ── Google Drive (modelo híbrido de reproducibilidad) ──────────────
+# Completar con los IDs reales de los archivos compartidos en Drive.
+drive:
+  # base cruda completa (privada) — ~8,5 GB
+  base_sepa_zip_id: "REEMPLAZAR_CON_ID_DE_DRIVE"
+  # agregados livianos publicables (públicos) — para reproducir análisis sin bajar la base cruda
+  agregados_publicos_id: "REEMPLAZAR_CON_ID_DE_DRIVE"
+
+# ── Esquema de la base ─────────────────────────────────────────────
+esquema:
+  cols_id: [id_comercio, id_bandera, id_sucursal, sucursales_provincia, id_producto]
+  # minorista: 1 columna de precio por día
+  minorista_prefijo_precio: "precio_"
+  minorista_patron_archivo: "*_pais_parte*COMPLETO*.csv.gz"
+  # mayorista: 4 columnas de precio por día
+  mayorista_cols_precio: [precio_uni_iva, precio_uni, precio_bulto_iva, precio_bulto]
+  mayorista_patron_archivo: "*_pais_mayorista_parte*.csv.gz"
+  na_token: "NA"
+
+# ── Limpieza / calidad ─────────────────────────────────────────────
+# Ver docs/CALIDAD_DATOS.md para la justificación de cada regla.
+limpieza:
+  # Valores sentinela a anular (precios "tope" o placeholder, no reales).
+  sentinelas: [499999, 6999999, 999999, 9999999]
+  # Rango plausible de precio unitario (pesos ARS) fuera del cual se marca outlier.
+  precio_min_plausible: 1
+  precio_max_plausible: 20000000
+  # Factor de escala: la base nueva parece venir ya en PESOS. Se AUTODETECTA por
+  # archivo con productos de referencia; este valor es solo el default esperado.
+  factor_precio_default: 1
+  eans_referencia: ["7793370008980", "7790895000061", "7793370008188"]  # sal, fideos, lavandina
+
+# ── Parámetros de análisis ─────────────────────────────────────────
+analisis:
+  mes_inicio_historico: "2024-01"
+  mes_base_indice: "2024-03"
+  min_sucursales: 50
+  min_pct_dias: 0.50
+  score_cobertura_min: 0.88
+  pct_trazabilidad_min: 0.90

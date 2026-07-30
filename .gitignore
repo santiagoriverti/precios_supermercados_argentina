@@ -1,0 +1,52 @@
+# ── Datos crudos y pesados (NUNCA al repo) ─────────────────────────
+data/raw/**
+data/interim/**
+!data/**/.gitkeep
+
+# Parquets: por defecto NO se versionan (pueden ser grandes).
+# Los agregados livianos publicables se fuerzan explícitamente más abajo.
+data/processed/**
+!data/processed/.gitkeep
+# Ejemplo para publicar un agregado liviano concreto:
+# !data/processed/serie_canastas_mensual.parquet
+
+# Zips y csv crudos sueltos
+*.zip
+*.csv.gz
+base_sepa/
+base_sepa*.zip
+
+# ── Salidas regenerables ───────────────────────────────────────────
+outputs/figures/**
+!outputs/figures/.gitkeep
+outputs/tables/**
+!outputs/tables/.gitkeep
+*.png
+*.jpg
+*.html
+
+# ── Python ─────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.ipynb_checkpoints/
+.python-version
+
+# ── Cachés del pipeline ────────────────────────────────────────────
+_cache/
+**/tmp_sepa/
+.duckdb
+*.duckdb.wal
+
+# ── Sistema / editores ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ── Secretos ───────────────────────────────────────────────────────
+.env
+config/secrets.yml
