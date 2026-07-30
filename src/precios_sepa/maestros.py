@@ -33,7 +33,8 @@ def cargar_sucursales(path: str | Path) -> pd.DataFrame:
     """Carga 'maestro_sucursales_completo.xlsx', repara texto y normaliza provincia/región."""
     df = pd.read_excel(path, sheet_name=0,
                        dtype={"id_comercio": str, "id_bandera": str, "id_sucursal": str})
-    for c in ("PROVINCIA", "REGION", "sucursales_localidad"):
+    for c in ("PROVINCIA", "REGION", "sucursales_localidad", "sucursales_nombre",
+              "sucursales_barrio", "sucursales_calle"):
         if c in df.columns:
             df[c] = reparar_mojibake(df[c])
     prov = pd.read_csv(CONFIG_DIR / "provincias.csv")

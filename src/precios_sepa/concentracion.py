@@ -52,3 +52,63 @@ def densidad_comercial(concentracion: pd.DataFrame, provincias: pd.DataFrame,
     out["poblacion"] = out[geo_col].map(pob)
     out["suc_por_100k"] = out["n_sucursales"] / out["poblacion"] * 100_000
     return out
+
+
+# ── Concentración ESPACIAL (lat/lon) ───────────────────────────────────────────
+# Métricas basadas en la geometría de los puntos de venta (no solo participación de cadenas).
+# Ver docs/METODOLOGIA_PRIMA_CELIACA.md §5.
+
+_RADIO_TIERRA_KM = 6371.0088
+
+
+def haversine_km(lat1, lon1, lat2, lon2):
+    """Distancia haversine en km (acepta escalares o arrays de numpy, en grados)."""
+    lat1, lon1, lat2, lon2 = map(np.radians, (lat1, lon1, lat2, lon2))
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    return 2 * _RADIO_TIERRA_KM * np.arcsin(np.sqrt(a))
+
+
+def metricas_espaciales(suc: pd.DataFrame, radios_km=(1, 3, 5),
+                        lat_col: str = "sucursales_latitud", lon_col: str = "sucursales_longitud",
+                        cadena_col: str = "cadena") -> pd.DataFrame:
+    """Para cada sucursal, calcula métricas de competencia espacial a partir de lat/lon:
+
+    - `dist_vecino_km`: distancia a la sucursal más cercana (cualquier cadena).
+    - `dist_vecino_otra_cadena_km`: a la sucursal más cercana de OTRA cadena (competencia real).
+    - `n_en_{R}km`: nº de sucursales dentro de R km.
+    - `n_otras_cadenas_en_{R}km`: nº de sucursales de otras cadenas dentro de R km.
+
+    Menor distancia / más competidores => mercado más competido (menos concentrado).
+    Usa fuerza bruta O(n²); con ~3.600 sucursales es instantáneo. Para N grande, migrar a
+    scipy.spatial.cKDTree con métrica de cuerda.
+    """
+    d = suc.dropna(subset=[lat_col, lon_col]).reset_index(drop=True).copy()
+    lat = d[lat_col].to_numpy(float)
+    lon = d[lon_col].to_numpy(float)
+    cad = d[cadena_col].to_numpy(str) if cadena_col in d.columns else np.array([""] * len(d))
+    n = len(d)
+
+    dist_min = np.full(n, np.nan)
+    dist_min_otra = np.full(n, np.nan)
+    cnt = {r: np.zeros(n, int) for r in radios_km}
+    cnt_otra = {r: np.zeros(n, int) for r in radios_km}
+
+    for i in range(n):
+        dk = haversine_km(lat[i], lon[i], lat, lon)
+        dk[i] = np.inf  # excluir la propia
+        dist_min[i] = dk.min()
+        otra = cad != cad[i]
+        if otra.any():
+            dist_min_otra[i] = dk[otra].min()
+        for r in radios_km:
+            en_r = dk <= r
+            cnt[r][i] = int(en_r.sum())
+            cnt_otra[r][i] = int((en_r & otra).sum())
+
+    d["dist_vecino_km"] = dist_min
+    d["dist_vecino_otra_cadena_km"] = dist_min_otra
+    for r in radios_km:
+        d[f"n_en_{r}km"] = cnt[r]
+        d[f"n_otras_cadenas_en_{r}km"] = cnt_otra[r]
+    return d
