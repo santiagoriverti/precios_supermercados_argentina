@@ -9,7 +9,10 @@ import pandas as pd
 SENTINELAS = (499999, 6999999, 999999, 9999999)
 PRECIO_MIN_PLAUSIBLE = 1.0
 PRECIO_MAX_PLAUSIBLE = 20_000_000.0
-EANS_REFERENCIA = ("7793370008980", "7790895000061", "7793370008188")  # sal, fideos, lavandina
+
+# Umbral del heurístico de unidad: una mediana global de precios por encima de este valor
+# indica centavos (÷100). Verificado: esta base viene en PESOS (mediana ~1.300–4.500).
+UMBRAL_CENTAVOS = 10_000.0
 
 
 def limpiar_precio(serie: pd.Series, sentinelas=SENTINELAS) -> pd.Series:
@@ -20,21 +23,20 @@ def limpiar_precio(serie: pd.Series, sentinelas=SENTINELAS) -> pd.Series:
     return s.astype("float32")
 
 
-def detectar_factor_precio(df: pd.DataFrame, col_precio: str = "precio",
-                           col_ean: str = "id_producto",
-                           eans_ref=EANS_REFERENCIA) -> int:
-    """Autodetecta si los precios están en pesos (1) o centavos (100).
+def detectar_factor_precio(precios, col_precio: str = "precio") -> int:
+    """Detecta si los precios están en pesos (1) o centavos (100) por la mediana global.
 
-    Usa la mediana de productos de referencia de precio conocido. Robusto a entregas
-    futuras que puedan volver a centavos. Ver docs/CALIDAD_DATOS.md §4.
+    `precios` puede ser una Series de precios o un DataFrame (usa `col_precio`).
+    Heurístico: mediana global > UMBRAL_CENTAVOS => centavos (÷100).
+
+    NOTA: esta base viene en PESOS en todo el rango (minorista y mayorista, 2024–2026).
+    La detección se mantiene como salvaguarda ante entregas futuras que pudieran venir en
+    centavos. La detección robusta a nivel archivo (sin sesgo) está en
+    `ingest.detectar_factor_archivo` (mediana vía DuckDB). Ver docs/CALIDAD_DATOS.md §4.
     """
-    ref = df.loc[df[col_ean].isin(eans_ref), col_precio].dropna()
-    mediana = ref.median() if len(ref) else df[col_precio].median()
-    if 30 <= mediana <= 20_000:
-        return 1
-    if 3_000 <= mediana <= 2_000_000:
-        return 100
-    raise ValueError(f"Mediana de referencia inesperada ({mediana:.1f}); revisar el archivo.")
+    s = precios[col_precio] if isinstance(precios, pd.DataFrame) else precios
+    m = pd.to_numeric(s, errors="coerce").median()
+    return 100 if (pd.notna(m) and m > UMBRAL_CENTAVOS) else 1
 
 
 def reparar_mojibake(s: pd.Series) -> pd.Series:

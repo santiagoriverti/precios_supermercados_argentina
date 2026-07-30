@@ -14,8 +14,13 @@ Proyecto nuevo (2026-07-30). Plataforma de investigación reproducible sobre pre
 ## Hallazgos verificados contra la base real (2026-07-30)
 - Minorista `…COMPLETO`: 1 col precio/día (`precio_YYYYMMDD`). Mayorista: 4 cols/día
   (`precio_uni_iva`, `precio_uni`, `precio_bulto_iva`, `precio_bulto`).
-- **Precios en PESOS con decimales, NO centavos** — contradice la doc del repo viejo
-  (que decía "2024 = centavos"). Igual se autodetecta el factor por archivo.
+- **UNIDAD = PESOS en toda la base** (minorista y mayorista, 2024–2026). Verificado con mediana
+  global (DuckDB): MIN 2024-01=1355 → 2024-12=2690 → 2025-06=2999 → 2026-06=4425; MAY 2024-01=1663
+  → 2026-06=3480. Crecen con inflación → mismos pesos. La base compilada ya está normalizada.
+  OJO: hubo dos despistes que corregí — (a) el §4 del nb mostraba "factor 100" por un peek
+  sesgado a las primeras filas (cluster caro id_comercio 2000); (b) los EANs de referencia del
+  repo viejo (7793370008980, …) NO existen en esta base. Detección ahora = mediana global DuckDB.
+  BUG corregido: `procesar_archivo` detectaba el factor pero NO lo aplicaba; ahora sí.
 - **Universo de cadenas MUCHO más amplio** que el dict histórico de 16 banners: ~47 combos
   (id_comercio, id_bandera), ~3.611 sucursales. Anclar al maestro de sucursales, no descartar.
 - Sentinelas a anular: 499999, 6999999, 62999 (planos), etc.

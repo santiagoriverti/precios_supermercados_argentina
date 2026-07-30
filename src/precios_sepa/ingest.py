@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .clean import limpiar_precio
+from .clean import UMBRAL_CENTAVOS, limpiar_precio
 from .io import ArchivoSepa, abrir_csv_gz
 
 _COLS_ID = ["id_comercio", "id_bandera", "id_sucursal", "sucursales_provincia", "id_producto"]
@@ -27,6 +27,30 @@ _RE_PRECIO = re.compile(r"^precio_(?:(?P<medida>uni_iva|uni|bulto_iva|bulto)_)?(
 
 def _price_cols(cols) -> list[str]:
     return [c for c in cols if c.startswith("precio_")]
+
+
+def _primera_col_precio(path) -> str:
+    with abrir_csv_gz(path) as g:
+        header = g.readline().rstrip("\r\n").split(",")
+    return next(c for c in header if c.startswith("precio_"))
+
+
+def detectar_factor_archivo(archivo: ArchivoSepa) -> tuple[int, float, str]:
+    """Detecta el factor (1=pesos, 100=centavos) de UN archivo por la mediana GLOBAL de su
+    primera columna de precio, calculada con DuckDB (streaming, sin sesgo de "primeras filas"
+    ni memoria alta). El factor es constante dentro de un archivo.
+
+    Devuelve (factor, mediana_global, metodo). Verificado: esta base es toda pesos → factor 1.
+    """
+    import duckdb
+
+    pcol = _primera_col_precio(archivo.path)
+    path = str(archivo.path).replace("\\", "/")
+    q = (f"SELECT median(TRY_CAST(nullif(\"{pcol}\", 'NA') AS DOUBLE)) "
+         f"FROM read_csv('{path}', all_varchar=1, ignore_errors=1)")
+    m = duckdb.sql(q).fetchone()[0]
+    m = float(m) if m is not None else float("nan")
+    return (100 if (pd.notna(m) and m > UMBRAL_CENTAVOS) else 1), m, "mediana_global"
 
 
 def wide_a_long(chunk: pd.DataFrame, tipo: str) -> pd.DataFrame:
@@ -80,6 +104,9 @@ def procesar_archivo(archivo: ArchivoSepa, out_root: str | Path,
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"parte{archivo.parte}.parquet"
 
+    # Factor de escala (1=pesos, 100=centavos): constante por archivo, se detecta y aplica.
+    factor, med, metodo = detectar_factor_archivo(archivo)
+
     writer = None
     n = leidas = 0
     with abrir_csv_gz(archivo.path) as g:
@@ -88,6 +115,8 @@ def procesar_archivo(archivo: ArchivoSepa, out_root: str | Path,
             long = wide_a_long(chunk, archivo.tipo)
             del chunk
             if not long.empty:
+                if factor != 1:
+                    long["precio"] = (long["precio"] / factor).astype("float32")
                 table = pa.Table.from_pandas(long, preserve_index=False)
                 if writer is None:
                     writer = pq.ParquetWriter(out_path, table.schema, compression="zstd")
@@ -103,5 +132,6 @@ def procesar_archivo(archivo: ArchivoSepa, out_root: str | Path,
         writer.close()
     if verbose:
         extra = f" (muestra ~{leidas:,} filas origen)" if limite_filas else ""
-        print(f"  {archivo.tipo} {archivo.periodo} parte{archivo.parte}: {n:,} filas -> {out_path.name}{extra}")
+        print(f"  {archivo.tipo} {archivo.periodo} parte{archivo.parte}: {n:,} filas -> "
+              f"{out_path.name} | factor={factor} ({metodo}, med={med:.0f}){extra}")
     return out_path

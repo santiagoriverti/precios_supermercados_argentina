@@ -45,10 +45,11 @@ limpieza:
   # Rango plausible de precio unitario (pesos ARS) fuera del cual se marca outlier.
   precio_min_plausible: 1
   precio_max_plausible: 20000000
-  # Factor de escala: la base nueva parece venir ya en PESOS. Se AUTODETECTA por
-  # archivo con productos de referencia; este valor es solo el default esperado.
+  # Factor de escala. VERIFICADO: esta base viene toda en PESOS (minorista y mayorista,
+  # 2024–2026; mediana global ~1.300–4.500). Se autodetecta por archivo con la mediana
+  # global (DuckDB) como salvaguarda: mediana > umbral_centavos => centavos (÷100).
   factor_precio_default: 1
-  eans_referencia: ["7793370008980", "7790895000061", "7793370008188"]  # sal, fideos, lavandina
+  umbral_centavos: 10000
 
 # ── Parámetros de análisis ─────────────────────────────────────────
 analisis:

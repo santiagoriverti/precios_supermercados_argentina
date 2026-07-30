@@ -55,10 +55,11 @@ Ejemplo real: `uni_iva=4115`, `uni=3400.83`, `bulto_iva=49380`, `bulto=40809.96`
 → el bulto contiene 12 unidades (`49380 / 4115 = 12`).
 
 ### Unidad de los precios
-**Pesos argentinos (ARS), con decimales.** Los valores traen parte decimal
-(ej. `3400.83`, `17.6`), lo que confirma que **no** están en centavos en esta base.
-El pipeline igual autodetecta el factor por archivo con productos de referencia
-(ver `docs/CALIDAD_DATOS.md` §Factor de precio), por robustez ante entregas futuras.
+**Pesos argentinos (ARS).** Verificado sobre la base completa: minorista y mayorista están en
+pesos en **todo el rango 2024–2026** (mediana global ~1.300–4.500, creciente con la inflación;
+el minorista además tiene ~24% de valores con decimales). El pipeline autodetecta el factor por
+archivo con la **mediana global** (DuckDB) como salvaguarda ante entregas futuras en centavos
+(ver `docs/CALIDAD_DATOS.md` §4). Hoy el factor es 1 en todos los archivos.
 
 ## 4. Maestro de Productos Interno (`.xlsx`)
 

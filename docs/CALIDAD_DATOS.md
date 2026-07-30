@@ -46,22 +46,35 @@ con `.str.lstrip('0')` en ambos lados (o `zfill(13)` para exportar).
 
 ## 4. Factor de precio (centavos vs. pesos)
 
-**Hallazgo clave (2026-07-30):** en esta base nueva, las muestras de **2024** ya vienen en
-**pesos** (traen decimales; ej. `3400.83`, `17.6`). Esto **contradice** la doc del proyecto
-previo, que asumía "2024 = centavos (÷100)". Probablemente la base fue re-exportada ya
-normalizada.
+**Hallazgo clave verificado (2026-07-30):** esta base viene **toda en PESOS**, tanto minorista
+como mayorista, en **todo el rango 2024–2026**. Evidencia (mediana global por DuckDB, sin
+sesgo de "primeras filas"):
 
-**Regla (robusta, por archivo):** no asumir el factor por año. Autodetectar con productos de
-referencia de precio conocido (`limpieza.eans_referencia`):
+| | 2024-01 | 2024-12 | 2025-06 | 2026-06 |
+|---|---|---|---|---|
+| Minorista | 1.355 | 2.690 | 2.999 | 4.425 |
+| Mayorista | 1.663 | — | — | 3.480 |
+
+Las medianas crecen de forma monótona con la inflación y quedan en rango de pesos; si 2024
+estuviera en centavos, sería ~100× más chico. Además el minorista tiene ~24% de valores con
+decimales (los centavos serían enteros). **La base que compiló Santiago ya está normalizada a
+pesos** → el `factor` es 1 en todos los archivos.
+
+> ⚠️ Esto **corrige** dos cosas: (a) la doc del proyecto previo, que decía "minorista 2024 =
+> centavos" (cierto para el SEPA oficial crudo, pero **no** para esta base ya normalizada); y
+> (b) los "EANs de referencia" heredados (`7793370008980`, …) que **no existen** en esta base
+> y hacían que la detección por referencia fallara.
+
+**Regla (salvaguarda, por archivo):** no asumir; detectar con la **mediana global** del archivo
+(barata y sin sesgo con DuckDB), en `ingest.detectar_factor_archivo`:
 
 ```python
-mediana_ref = df.loc[df.id_producto.isin(EANS_REF), 'precio'].median()
-if   30 <= mediana_ref <= 20000:      FACTOR = 1     # ya en pesos
-elif 3000 <= mediana_ref <= 2_000_000: FACTOR = 100  # en centavos → /100
-else: raise ValueError(f'Mediana de referencia inesperada: {mediana_ref}')
+m = mediana_global(primera_columna_de_precio)   # via DuckDB, streaming
+FACTOR = 100 if m > 10_000 else 1                # umbral_centavos (settings.yml)
 ```
 
-Registrar el `FACTOR` detectado por archivo en el log del build para auditoría.
+`procesar_archivo` aplica el `FACTOR` detectado (dividiendo si es 100) y lo registra en el log
+del build. Hoy siempre da 1, pero la salvaguarda protege ante entregas futuras en centavos.
 
 ## 5. Provincias — inconsistencias del maestro
 
